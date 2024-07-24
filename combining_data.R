@@ -1,0 +1,203 @@
+## Purpose: Prolific analyses
+
+
+## Import libraries ------------------------------------------------------------
+library(tidyverse)  # Keep script tidy
+library(glue)       # String formatting throughout
+library(pbapply)    # Progress bars for *apply functions
+library(readr)
+library(magrittr)
+library(ggplot2)
+library(qwraps2)
+library(reshape2)
+library(data.table)
+library(car)
+library(psych)
+library(dplyr)
+library(reticulate)
+
+## Clear workspace -------------------------------------------------------------
+rm(list = ls())
+setwd('L:/rsmith/wellbeing/tasks')
+## Run necessary scripts before combining --------------------------------------
+# note that python here runs using a reticulate virtual environment
+source('../util/prolific_survey_scoring.R')
+source_python('./QC/pull_demographics.py')
+## Load in data -----------------------------------------------------------
+setwd('L:/rsmith/wellbeing/tasks')
+surveys <- read.csv('../data/prolific/survey_data.csv')
+## ========= Social Media ========
+directory <- file.info(list.files('./SocialMedia/output/prolific/kf', 
+                                  pattern='fits', full.names = T)) %>% 
+  as.data.frame %>% 
+  rownames_to_column(.) %>% rename(filname='rowname') %>%
+  mutate(d=ifelse(grepl(pattern = 'Dislike', filname), T, F)) %>%
+  mutate(cb=ifelse(grepl(pattern = '_CB', filname), T, F))
+
+combine_social_fits <- function(root, result_dir, write.table=F){
+  rooms = c('Like', 'Dislike')  
+  for(room in rooms){
+    all.files <- list.files(glue("{root}"), pattern=glue(".*{room}.*.csv"), full.names = T)
+    name <- paste("df", sep='.', room)
+    assign(name, all.files %>% 
+             pblapply(., FUN = read.csv) %>% 
+             do.call(rbind, .) %>%
+             mutate(room_type = room) %>%
+             relocate(room_type, .after = session))
+  } 
+  df <- rbind(df.Like, df.Dislike)
+  return(df)
+  if(write.table){write.csv(df, glue("{result_dir}/fits_{Sys.Date()}.csv"), row.names=F)}
+}
+
+sm.data <- data.frame()
+for(rd in c(F,T)){
+  #for(counter in c(F,T)){  # CMG commented out because no longer fit separately by CB
+    #sm.data <- directory %>% filter(d==rd) %>% filter(cb==counter) %>%
+      sm.data <- directory %>% filter(d==rd) %>%
+      arrange(mtime) %>% tail(n=1) %>%
+      pull(filname) %>% print(.) %>%
+      read.csv(.) %>% 
+      mutate(room_type = ifelse(rd,'Dislike','Like')) %>%
+      mutate(CB = counter) %>%
+      mutate(DE = info_bonus_h5 - info_bonus_h1) %>%
+      mutate(RE = dec_noise_h5_13 - dec_noise_h1_13) %>%
+      rbind(sm.data,.)
+  #}
+}
+
+sm.data <- combine_social_fits(root='./SocialMedia/output/prolific/logistic', 
+                    result_dir = './SocialMedia/output') %>% 
+  rename(id='subject') %>%
+  merge(sm.data,.,by=c('id', 'room_type'), all=T)%>% 
+  rename_with(~paste0('SM_',.), -id)
+if(sm.data$SM_has_practice_effects.x %>% is.na() %>% sum >0){
+  print(glue('{sm.data$SM_has_practice_effects.x %>% is.na() %>% sum/2} subjects need to be added to the KF!'))
+}
+sm.data <- sm.data %>% filter(!is.na(SM_has_practice_effects.x))
+if(sum(sm.data$SM_has_practice_effects.x != sm.data$SM_has_practice_effects.y)){
+  print('Warning! Practice effects don"t match up in Social Media')
+}else{
+  sm.data <- sm.data %>% 
+    mutate(SM_has_practice_effects = SM_has_practice_effects.x) %>%
+    select(-contains('.x'),-contains('.y'))
+}
+
+sm.data <- sm.data %>% select(-SM_num_games) %>%
+  pivot_wider(id_cols=c(id, SM_has_practice_effects),
+                         names_from = 'SM_room_type', values_from=c(3:86)) %>%
+  as.data.frame %>%
+  mutate(SM_DE_Dislike = SM_info_bonus_h5_Dislike - SM_info_bonus_h1_Dislike) %>%
+  mutate(SM_DE_Like = SM_info_bonus_h5_Like - SM_info_bonus_h1_Like) %>%
+  mutate(SM_RE_Dislike = SM_dec_noise_h5_13_Dislike - SM_dec_noise_h1_13_Dislike) %>%
+  mutate(SM_RE_Like = SM_dec_noise_h5_13_Like - SM_dec_noise_h1_13_Like)
+  
+## =========== Advice Task ===========
+advice.fits <- file.info(list.files('./AdviceTask/output',
+                                    pattern='fits', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  rename(id='subject')
+ad.data <- file.info(list.files('./AdviceTask/output',
+                                pattern='prolific_mf', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  rename(id='subject_id') %>%
+  merge(advice.fits,.,by='id',all=T)%>% 
+  rename_with(~paste0('AD_',.), -id)
+
+## ========= Emotional Faces =========
+ef.data <- file.info(list.files('./EmotionalFaces/output',
+                                pattern='hgf', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  rename(id='ID')%>% 
+  rename_with(~paste0('EF_',.), -id)
+
+## ========= Cooperation Task =========
+coop.fits <- file.info(list.files('./Cooperation/output',
+                                  pattern='coop_prolific', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  rename(id='subject') %>% select(-file)
+coop.data <- file.info(list.files('./Cooperation/output',
+                                  pattern='mf', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  mutate(id = gsub(pattern = '.*cooperation_task_(.+)_T1.*',replacement='\\1', x = file)) %>%
+  select(-file) %>% merge(coop.fits, ., by='id')%>% 
+  rename_with(~paste0('COP_',.), -id)
+
+if(sum(coop.data$COP_has_practice_effects.x != coop.data$COP_has_practice_effects.y)){
+  print('Warning! Practice effects don"t match up in Cooperation')
+}else{
+  coop.data <- coop.data %>% 
+    mutate(CO_has_practice_effects = COP_has_practice_effects.x) %>%
+    select(-contains('.x'),-contains('.y'))
+}
+## ========= Blind Dating ==========
+bd.mf <- list.files('L:/rsmith/wellbeing/tasks/BlindDating/output/prolific/', 
+                        pattern=glue("model-free.*.csv"), full.names = T) %>%
+         pblapply(., FUN = read.csv) %>% 
+         do.call(rbind, .) %>% rename(id='subject') %>%
+  rename_with(~paste0('BD_',.), -id) %>% select(-BD_session)
+
+## =========== Combine ============
+df <- merge(surveys,sm.data, by='id',all=T) %>%
+  merge(.,ad.data,by='id',all=T)%>%
+  merge(.,ef.data,by='id',all=T)%>%
+  merge(.,coop.data,by='id',all=T) %>%
+  merge(.,bd.mf,by='id',all=T) %>%
+  filter(!duplicated(.))
+
+## ============= Add Demographics ==========
+collectivistic_countries <- c("Cambodia", "China", "Hong Kong", "India", "Indonesia", 
+                              "Japan", "Korea", "Lao People's Democratic Republic", 
+                              "Malaysia", "Mongolia", "Myanmar", "Nepal", "Philippines", 
+                              "Taiwan", "Thailand", "Vietnam")
+
+final <- read.csv('L:/rsmith/wellbeing/data/prolific/all_demographic_data.csv') %>% 
+  rename(id='Participant.id') %>% 
+  group_by(id) %>% mutate(Age_at_start = min(Age)) %>% 
+  ungroup %>% as.data.frame %>% select(-Age) %>% # take care of participants that might have done different order/CB 
+  filter(!duplicated(.)) %>%
+  filter(!(id=='65f0677c96375d7ff6595772'&(R=='R2'|CB=='CB2'))) %>%
+  filter(!(id=='65f37b4d647d49eb9fee0090'&(R=='R2'))) %>%
+  filter(!(id=='65fe5444cc257c70f668d2a4'&(R=='R2'| CB=='CB1'))) %>%
+  filter(!(id=='65ea6d657bbd3689a87a1de6'&(R=='R2'| CB=='CB2'))) %>%
+  filter(!(id=='663b8df565dd08db10006c4e'&(R=='R2'& CB=='CB1'))) %>%
+  filter(!(id=='65f333c755d191fcd18fa279'&(R=='R2'& CB=='CB2'))) %>%
+  # take care of participants that have duplicated values except for Culture column (thinking that they started a study that was discontinued due to some error)
+  filter(!(id=='65ea6d657bbd3689a87a1de6'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65f03cac071873738667ccbb'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65f0405b36b8d4bfa1eb9637'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65f0677c96375d7ff6595772'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65f11794f02cbf5b0acb34b0'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65f85564dbfd935f4f68d062'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65fb8ba703fee27775bdc9bf'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65fe5444cc257c70f668d2a4'&(Culture=='AsiaOld'))) %>%
+  filter(!(id=='65ff24005c028050281d3f17'&(Culture=='USATest'))) %>%
+  
+  mutate(collectivistic = if_else(Nationality %in% collectivistic_countries &
+                                    Country.of.birth %in% collectivistic_countries, 
+                                  TRUE, FALSE)) %>%
+  pivot_wider(id_cols=c('id','collectivistic','Culture','Age_at_start','Sex','Ethnicity.simplified',
+                        'Country.of.birth','Country.of.residence',
+                        'Nationality','Language','R','CB'), 
+              names_from = 'Session', 
+              names_prefix = 'Status_ses_',
+              values_from = 'Status') %>%
+  arrange(id) %>% group_by(id) %>% 
+  fill(starts_with('Status'),.direction='downup') %>%
+  filter(!(Sex=='CONSENT_REVOKED'&Status_ses_1=='APPROVED')) %>%
+  filter(Status_ses_1 %in% c('APPROVED', 'AWAITING REVIEW')) %>%
+  merge(df,.,by='id',all=T) %>%
+  filter(!is.na(Status_ses_1)) %>%
+  select(id, collectivistic, CB, R, Culture, everything())
+
+# Make sure no participants have duplicated rows
+duplicated_ids <- final$id[duplicated(final$id) | duplicated(final$id, fromLast = TRUE)]
+duplicates <- final %>% filter(id %in% duplicated_ids)
+View(duplicates)
+
+write.csv(final, 'L:/rsmith/wellbeing/data/prolific/SWB_prolific_data.csv', row.names = F)

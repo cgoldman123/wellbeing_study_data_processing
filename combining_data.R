@@ -59,12 +59,15 @@ for(rd in c(F,T)){
       pull(filname) %>% print(.) %>%
       read.csv(.) %>% 
       mutate(room_type = ifelse(rd,'Dislike','Like')) %>%
-      mutate(CB = counter) %>%
+     # mutate(CB = counter) %>%
       mutate(DE = info_bonus_h5 - info_bonus_h1) %>%
       mutate(RE = dec_noise_h5_13 - dec_noise_h1_13) %>%
-      rbind(sm.data,.)
+      rbind(sm.data,.) 
+
   #}
 }
+names(sm.data) <- ifelse((names(sm.data) != "id" & names(sm.data) != "room_type" & names(sm.data) != "has_practice_effects"), paste("KF", names(sm.data), sep = "_"), names(sm.data))
+
 
 sm.data <- combine_social_fits(root='./SocialMedia/output/prolific/logistic', 
                     result_dir = './SocialMedia/output') %>% 
@@ -83,71 +86,103 @@ if(sum(sm.data$SM_has_practice_effects.x != sm.data$SM_has_practice_effects.y)){
     select(-contains('.x'),-contains('.y'))
 }
 
-sm.data <- sm.data %>% select(-SM_num_games) %>%
+sm.data <- sm.data %>%
+  select(-SM_num_games) %>%
+  select(id, SM_has_practice_effects, SM_room_type, everything())%>%
   pivot_wider(id_cols=c(id, SM_has_practice_effects),
-                         names_from = 'SM_room_type', values_from=c(3:86)) %>%
-  as.data.frame %>%
-  mutate(SM_DE_Dislike = SM_info_bonus_h5_Dislike - SM_info_bonus_h1_Dislike) %>%
-  mutate(SM_DE_Like = SM_info_bonus_h5_Like - SM_info_bonus_h1_Like) %>%
-  mutate(SM_RE_Dislike = SM_dec_noise_h5_13_Dislike - SM_dec_noise_h1_13_Dislike) %>%
-  mutate(SM_RE_Like = SM_dec_noise_h5_13_Like - SM_dec_noise_h1_13_Like)
+              names_from = 'SM_room_type', values_from = c(4:86)) %>%
+  as.data.frame() %>%
+  mutate(across(everything(), ~sapply(., function(x) if (length(x) > 0) x[1] else NA_real_))) %>%
+  mutate(
+    SM_DE_Dislike = SM_KF_info_bonus_h5_Dislike - SM_KF_info_bonus_h1_Dislike,
+    SM_DE_Like = SM_KF_info_bonus_h5_Like - SM_KF_info_bonus_h1_Like,
+    SM_RE_Dislike = SM_KF_dec_noise_h5_13_Dislike - SM_KF_dec_noise_h1_13_Dislike,
+    SM_RE_Like = SM_KF_dec_noise_h5_13_Like - SM_KF_dec_noise_h1_13_Like
+  )
+
   
 ## =========== Advice Task ===========
-advice.fits <- file.info(list.files('./AdviceTask/output',
+ad.data <- file.info(list.files('./AdviceTask/output',
                                     pattern='fits', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
   arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
   rename(id='subject')
-ad.data <- file.info(list.files('./AdviceTask/output',
-                                pattern='prolific_mf', full.names = T)) %>% 
-  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
-  rename(id='subject_id') %>%
-  merge(advice.fits,.,by='id',all=T)%>% 
-  rename_with(~paste0('AD_',.), -id)
+
 
 ## ========= Emotional Faces =========
-ef.data <- file.info(list.files('./EmotionalFaces/output',
-                                pattern='hgf', full.names = T)) %>% 
-  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
-  rename(id='ID')%>% 
-  rename_with(~paste0('EF_',.), -id)
+model_based_patterns <- c("rho", "sigma", "omega", "kappa", "AIC", "LME", "avg_act", "model", "p_or_r", "variance", "mu")
+base_dir <- './EmotionalFaces/output/prolific'
+# List and filter files containing both 'hgf' and 'predictions'
+file_paths_filtered <- list.files(base_dir, pattern='hgf', full.names = TRUE)
+file_paths_filtered <- file_paths_filtered[grep('predictions', file_paths_filtered)]
+ef.data.pred.model <- file.info(file_paths_filtered) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  rename(filname='rowname') %>%
+  arrange(desc(mtime)) %>%
+  tail(n=1) %>%
+  pull(filname) %>%
+  read.csv() %>%
+  rename(id='ID') %>%
+  rename_with(~ sapply(.x, function(x) {
+    if (any(sapply(model_based_patterns, function(p) grepl(p, x)))) {
+      paste0('EF_pred_model_', x)
+    } else {
+      paste0('EF_', x)
+    }
+  }), .cols = -id)
+
+# List and filter files containing both 'hgf' and 'responses'
+file_paths_filtered <- list.files(base_dir, pattern='hgf', full.names = TRUE)
+file_paths_filtered <- file_paths_filtered[grep('responses', file_paths_filtered)]
+ef.data.resp.model <- file.info(file_paths_filtered) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  rename(filname='rowname') %>%
+  arrange(desc(mtime)) %>%
+  tail(n=1) %>%
+  pull(filname) %>%
+  read.csv() %>%
+  rename(id='ID') %>%
+  rename_with(~ sapply(.x, function(x) {
+    if (any(sapply(model_based_patterns, function(p) grepl(p, x)))) {
+      paste0('EF_resp_model_', x)
+    } else {
+      paste0('EF_', x)
+    }
+  }), .cols = -id)
+
+ef.data <- inner_join(ef.data.pred.model, ef.data.resp.model, by = "id")
+# drop duplicated cols
+ef.data <- ef.data %>% select(-matches("\\.y$"))
+
+
 
 ## ========= Cooperation Task =========
-coop.fits <- file.info(list.files('./Cooperation/output',
-                                  pattern='coop_prolific', full.names = T)) %>% 
+
+coop.data <- file.info(list.files('./Cooperation/output/prolific_fits_and_mf',
+                                pattern='coop', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
   arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
-  rename(id='subject') %>% select(-file)
-coop.data <- file.info(list.files('./Cooperation/output',
-                                  pattern='mf', full.names = T)) %>% 
-  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
-  mutate(id = gsub(pattern = '.*cooperation_task_(.+)_T1.*',replacement='\\1', x = file)) %>%
-  select(-file) %>% merge(coop.fits, ., by='id')%>% 
   rename_with(~paste0('COP_',.), -id)
 
-if(sum(coop.data$COP_has_practice_effects.x != coop.data$COP_has_practice_effects.y)){
-  print('Warning! Practice effects don"t match up in Cooperation')
-}else{
-  coop.data <- coop.data %>% 
-    mutate(CO_has_practice_effects = COP_has_practice_effects.x) %>%
-    select(-contains('.x'),-contains('.y'))
-}
+
+
 ## ========= Blind Dating ==========
-bd.mf <- list.files('L:/rsmith/wellbeing/tasks/BlindDating/output/prolific/', 
-                        pattern=glue("model-free.*.csv"), full.names = T) %>%
-         pblapply(., FUN = read.csv) %>% 
-         do.call(rbind, .) %>% rename(id='subject') %>%
-  rename_with(~paste0('BD_',.), -id) %>% select(-BD_session)
+bd.data <- file.info(list.files('./BlindDating/output/fits_and_model_free/prolific',
+                                  pattern='BD', full.names = T)) %>% 
+  as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  rename(id = subject) %>%  # Rename 'subject' to 'id'
+  rename_with(~paste0('BD_',.), -id)
+
 
 ## =========== Combine ============
 df <- merge(surveys,sm.data, by='id',all=T) %>%
   merge(.,ad.data,by='id',all=T)%>%
   merge(.,ef.data,by='id',all=T)%>%
   merge(.,coop.data,by='id',all=T) %>%
-  merge(.,bd.mf,by='id',all=T) %>%
+  merge(.,bd.data,by='id',all=T) %>%
   filter(!duplicated(.))
 
 ## ============= Add Demographics ==========

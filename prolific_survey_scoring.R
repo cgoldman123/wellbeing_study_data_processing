@@ -33,6 +33,7 @@ survey.list = c('ctq','qes','panasx','ryff_wb','sticsa_state',
                 'promis_meaning', 'promis_sleep', 'promis_social_iso',
                 'promis_social_sat','promis_self_efficacy','promis_self_efficacy_manage',
                 'csass_oecd', 'health_questions')
+
 ## Functions -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 extract.survey <- function(survey_str){
   scores <- data.frame()
@@ -250,8 +251,22 @@ ryff_wb_score <- function(data){
     filter(V1 %in% c('question11','question23','question36','question42',
                      'question8','question20','question33')) %>%
     pull(V2) %>% sum
+  RYFF_total <- data %>%
+    filter(V1 %in% c('question1','question2','question3','question4',
+                     'question5','question6','question7','question8',
+                     'question9','question10','question11','question12',
+                     'question13','question14','question15','question17',
+                     'question18','question19','question20','question21',
+                     'question22','question23','question24','question25',
+                     'question26','question27','question28','question29',
+                     'question31','question32','question33','question34',
+                     'question35','question36','question37','question38',
+                     'question39','question40','question41','question42',
+                     'question43','question44')) %>%
+    pull(V2) %>% sum
+  
   final <- data.frame(ryff_attncheck1, ryff_attncheck2,RYFF_autonomy, RYFF_envmastery,RYFF_persgrowth,
-                      RYFF_posrelations,RYFF_purposelife,RYFF_selfaccept)
+                      RYFF_posrelations,RYFF_purposelife,RYFF_selfaccept, RYFF_total)
   return(final)
 }
 sticsa_state_score <- function(data){
@@ -316,7 +331,6 @@ well_being_score <- function(data){
   return(final)
 }
 dpes_score <- function(data){
-  #need to check to make sure it works
   DPES_attncheck1 <- data %>% filter(V1=='question_check1') %>% pull(V2)=='Item 6'
   
   data <- data %>% filter(!grepl('check', V1)) %>% 
@@ -344,15 +358,12 @@ dpes_score <- function(data){
   DPES_awe <- data %>%
     filter(grepl(paste(paste0('question', 33:38), collapse='|'),V1)) %>%
     pull(V2) %>% sum/6
-  
+  DPES_total <- data %>%
+    filter(grepl(paste(paste0('question',1:38), collapse ='|'),V1)) %>%
+    pull(V2) %>% sum/38
   final <- data.frame(DPES_attncheck1,DPES_joy,DPES_content,DPES_pride,DPES_love,
-                      DPES_compassion,DPES_amusement,DPES_awe)
+                      DPES_compassion,DPES_amusement,DPES_awe,DPES_total)
   return(final)
-  #DPES_total <- data %>% filter(!grepl('check', V1)) %>% 
-    #filter(!grepl('TRQ', V1)) %>%
-    #mutate(V2 = as.numeric(sub('.*Item ','', V2))) %>%
-    #pull(V2) %>% sum/38
-  #final <- data.frame(DPES_attncheck1,DPES_total)
 }
 hils_score <- function(data){
   HILS_total <- data %>% 
@@ -528,7 +539,7 @@ cit_score <- function(data){
   CIT_relationship_respect = data %>%
     filter(V1 %in% paste0('question', 10:12)) %>%
     pull(V2) %>% sum
-  CIT_lack_of_loneliness = data %>%
+  CIT_relationship_lack_of_loneliness = data %>%
     filter(V1 %in% paste0('question', 13:15)) %>%
     mutate(V2=6-V2) %>%
     pull(V2) %>% sum
@@ -600,7 +611,7 @@ cit_score <- function(data){
   
   final <- data.frame(CIT_attncheck1, CIT_attncheck2, CIT_relationship_support,
                       CIT_relationship_community, CIT_relationship_trust, CIT_relationship_respect,
-                      CIT_lack_of_loneliness, CIT_relationship_belonging, CIT_relationship,
+                      CIT_relationship_lack_of_loneliness, CIT_relationship_belonging, CIT_relationship,
                       CIT_engagement, CIT_mastery_skills, CIT_mastery_learning, CIT_mastery_accomplishment,
                       CIT_mastery_self_efficacy, CIT_mastery_self_worth, CIT_mastery, CIT_autonomy, CIT_meaning,
                       CIT_optimism, CIT_swb_life_satisfaction, CIT_swb_pos_feelings,
@@ -1053,23 +1064,23 @@ bis_bas_score <- function(data){
   return(data.frame(BIS_BAS_attncheck,BAS_drive,BAS_fun_seeking,BAS_reward,BAS_total,BIS_total))
 }
 promis_emotion_score <- function(data){
-  promis_emotion_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
+  PROMIS_emotional_support_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
   df_filtered = data %>% filter(!grepl('TRQ', V1))  %>% 
     filter(!(V1 %in% c('question_check', 'tScore')))%>% 
     mutate(V2=as.numeric(sub('.*Item ','', V2)))
-  promis_emotion_raw = df_filtered %>% pull(V2) %>% sum
+  PROMIS_emotional_support_raw = df_filtered %>% pull(V2) %>% sum
   return(data.frame(PROMIS_emotional_support_raw, PROMIS_emotional_support_tscore))
 }
 promis_meaning_score <- function(data){
-  promis_meaning_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
+  PROMIS_meaning_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
   if (any(grepl('question_check1', data$V1))) {
-    promis_meaning_attncheck = data %>% filter(V1=="question_check1") %>% pull(V2) == '4.0'
+    PROMIS_meaning_attncheck = data %>% filter(V1=="question_check1") %>% mutate(V2 = as.numeric(V2)) %>%
+      pull(V2) == 4
   } else {
-    promis_meaning_attncheck = NA
+    PROMIS_meaning_attncheck = NA
   }
   df_filtered = data %>% filter(!grepl('TRQ', V1))  %>% filter(!(V1 %in% c('question_check1', 'tScore')))%>% mutate(V2=as.numeric(sub('.*Item ','', V2)))
-  promis_meaning_attncheck = TRUE
-  promis_meaning_raw = df_filtered %>% pull(V2) %>% sum
+  PROMIS_meaning_raw = df_filtered %>% pull(V2) %>% sum
   #print(promis_emotion_score)
   return(data.frame(PROMIS_meaning_tscore, PROMIS_meaning_attncheck,PROMIS_meaning_raw))
 }
@@ -1090,9 +1101,9 @@ promis_self_efficacy_manage_score <- function(data){
   return(data.frame(PROMIS_self_efficacy_manage_raw, PROMIS_self_efficacy_manage_tscore))
 }
 promis_sleep_score <- function(data){
-  promis_sleep_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
+  PROMIS_sleep_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
   df_filtered = data %>% filter(!grepl('TRQ', V1))  %>% filter(!(V1 %in% c('question_check', 'tScore')))%>% mutate(V2=as.numeric(sub('.*Item ','', V2)))
-  promis_sleep_raw = df_filtered %>% pull(V2) %>% sum
+  PROMIS_sleep_raw = df_filtered %>% pull(V2) %>% sum
   #print(promis_emotion_score)
   return(data.frame(PROMIS_sleep_raw, PROMIS_sleep_tscore))
 }
@@ -1106,8 +1117,8 @@ promis_social_iso_score <- function(data){
 promis_social_sat_score <- function(data){
   #5 should be never and 1 should be always so this is fixed by reverse scoring here
   # also don't think of this as "social satisfaction" bc that's not right
-  PROMIS_social_sat_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
-  PROMIS_social_sat_raw = data %>% filter(!grepl('TRQ', V1))  %>% 
+  PROMIS_social_ability_tscore = data %>% filter(V1=="tScore") %>% pull(V2)
+  PROMIS_social_ability_raw = data %>% filter(!grepl('TRQ', V1))  %>% 
     filter(!(V1 %in% c('question_check', 'tScore')))%>% 
     mutate(V2=6-as.numeric(sub('.*Item ','', V2))) %>% 
     pull(V2) %>% sum

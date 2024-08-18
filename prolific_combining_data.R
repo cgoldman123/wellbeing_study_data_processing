@@ -40,69 +40,17 @@ directory <- file.info(list.files('./SocialMedia/output/prolific/kf',
 
 sm.data <- data.frame()
 for(rd in c(F,T)){
-  #for(counter in c(F,T)){  # CMG commented out because no longer fit separately by CB
-    #sm.data <- directory %>% filter(d==rd) %>% filter(cb==counter) %>%
       sm.data <- directory %>% filter(d==rd) %>%
       arrange(mtime) %>% tail(n=1) %>%
       pull(filname) %>% print(.) %>%
       read.csv(.) %>% 
       mutate(room_type = ifelse(rd,'Dislike','Like')) %>%
-     # mutate(CB = counter) %>%
       mutate(DE = info_bonus_h5 - info_bonus_h1) %>%
       mutate(RE = dec_noise_h5_13 - dec_noise_h1_13) %>%
       rbind(sm.data,.) 
-
-  #}
 }
 names(sm.data) <- ifelse((names(sm.data) != "id" & names(sm.data) != "room_type" & names(sm.data) != "has_practice_effects"), paste("KF", names(sm.data), sep = "_"), names(sm.data))
 
-
-# uncomment to get logistic choice model results
-# combine_social_fits <- function(root, result_dir, write.table=F){
-#   rooms = c('Like', 'Dislike')  
-#   for(room in rooms){
-#     all.files <- list.files(glue("{root}"), pattern=glue(".*{room}.*.csv"), full.names = T)
-#     name <- paste("df", sep='.', room)
-#     assign(name, all.files %>% 
-#              pblapply(., FUN = read.csv) %>% 
-#              do.call(rbind, .) %>%
-#              mutate(room_type = room) %>%
-#              relocate(room_type, .after = session))
-#   } 
-#   df <- rbind(df.Like, df.Dislike)
-#   return(df)
-#   if(write.table){write.csv(df, glue("{result_dir}/fits_{Sys.Date()}.csv"), row.names=F)}
-# }
-
-# sm.data <- combine_social_fits(root='./SocialMedia/output/prolific/logistic', 
-#                     result_dir = './SocialMedia/output') %>% 
-#   rename(id='subject') %>%
-#   merge(sm.data,.,by=c('id', 'room_type'), all=T)%>% 
-#   rename_with(~paste0('SM_',.), -id)
-# if(sm.data$SM_has_practice_effects.x %>% is.na() %>% sum >0){
-#   print(glue('{sm.data$SM_has_practice_effects.x %>% is.na() %>% sum/2} subjects need to be added to the KF!'))
-# }
-# sm.data <- sm.data %>% filter(!is.na(SM_has_practice_effects.x))
-# if(sum(sm.data$SM_has_practice_effects.x != sm.data$SM_has_practice_effects.y)){
-#   print('Warning! Practice effects don"t match up in Social Media')
-# }else{
-#   sm.data <- sm.data %>% 
-#     mutate(SM_has_practice_effects = SM_has_practice_effects.x) %>%
-#     select(-contains('.x'),-contains('.y'))
-# }
-# sm.data <- sm.data %>%
-#   select(-SM_num_games) %>%
-#   select(id, SM_has_practice_effects, SM_room_type, everything())%>%
-#   pivot_wider(id_cols=c(id, SM_has_practice_effects),
-#               names_from = 'SM_room_type', values_from = c(4:86)) %>%
-#   as.data.frame() %>%
-#   mutate(across(everything(), ~sapply(., function(x) if (length(x) > 0) x[1] else NA_real_))) %>%
-#   mutate(
-#     SM_DE_Dislike = SM_KF_info_bonus_h5_Dislike - SM_KF_info_bonus_h1_Dislike,
-#     SM_DE_Like = SM_KF_info_bonus_h5_Like - SM_KF_info_bonus_h1_Like,
-#     SM_RE_Dislike = SM_KF_dec_noise_h5_13_Dislike - SM_KF_dec_noise_h1_13_Dislike,
-#     SM_RE_Like = SM_KF_dec_noise_h5_13_Like - SM_KF_dec_noise_h1_13_Like
-#   )
 
 duplicated_sm_fits = sm.data %>% count(id) %>% filter(n > 2)
 cat("Number of SM subjects removed for duplicate data", nrow(duplicated_sm_fits ),"\n")
@@ -127,7 +75,7 @@ sm.data <- sm.data %>%
 ad.data <- file.info(list.files('./AdviceTask/output',
                                     pattern='fits', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() %>%
   rename_with(~paste0('AD_',.), -id)
 
 
@@ -138,21 +86,21 @@ ad.data <- file.info(list.files('./AdviceTask/output',
 tom.1_1_1_0 = file.info(list.files('./TheoryofMind/fits/prolific',
                                    pattern='_1_1_1_0', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() %>%
   rename(id = subject) %>% as.data.frame(.) %>%   # Rename 'subject' to 'id'
   rename_with(~paste0('model_1_1_1_0_',.), -id)
 
 tom.1_1_1_1 = file.info(list.files('./TheoryofMind/fits/prolific',
                                    pattern='_1_1_1_1', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() %>%
   rename(id = subject) %>% as.data.frame(.) %>%   # Rename 'subject' to 'id'
   rename_with(~paste0('model_1_1_1_1_',.), -id)
 
 tom.1_1_1_2 = file.info(list.files('./TheoryofMind/fits/prolific',
                                    pattern='_1_1_1_2', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() %>%
   rename(id = subject) %>% as.data.frame(.) %>%   # Rename 'subject' to 'id'
   rename_with(~paste0('model_1_1_1_2_',.), -id)
 
@@ -171,7 +119,7 @@ file_paths_filtered <- list.files(base_dir, pattern='hgf', full.names = TRUE)
 file_paths_filtered <- file_paths_filtered[grep('predictions', file_paths_filtered)]
 ef.data.pred.model <- file.info(file_paths_filtered) %>%
   as.data.frame() %>% rownames_to_column() %>% rename(filname='rowname') %>% arrange((mtime)) %>% tail(n=1) %>%
-  pull(filname) %>% read.csv() %>% rename(id='ID') %>%
+  pull(filname) %>% print(.) %>% read.csv() %>% rename(id='ID') %>%
   rename_with(~ sapply(.x, function(x) {
     if (any(sapply(model_based_patterns, function(p) grepl(p, x)))) {
       paste0('EF_pred_model_', x)
@@ -190,6 +138,7 @@ ef.data.resp.model <- file.info(file_paths_filtered) %>%
   arrange((mtime)) %>%
   tail(n=1) %>%
   pull(filname) %>%
+  print(.) %>%
   read.csv() %>%
   rename(id='ID') %>%
   rename_with(~ sapply(.x, function(x) {
@@ -222,7 +171,7 @@ base_dir <- './Cooperation/output/prolific_fits_and_mf'
 file_paths_filtered <- list.files(base_dir, pattern='one_eta', full.names = TRUE)
 coop.data.one.eta <- file.info(file_paths_filtered) %>%
   as.data.frame() %>% rownames_to_column() %>% rename(filname='rowname') %>% arrange((mtime)) %>% tail(n=1) %>%
-  pull(filname) %>% read.csv() %>%
+  pull(filname) %>% print(.) %>% read.csv() %>%
   rename_with(~ sapply(.x, function(x) {
     if (any(sapply(model_based_patterns, function(p) grepl(p, x)))) {
       paste0('COP_one_eta_', x)
@@ -233,7 +182,7 @@ coop.data.one.eta <- file.info(file_paths_filtered) %>%
 
 file_paths_filtered <- list.files(base_dir, pattern='three_etas', full.names = TRUE)
 coop.data.three.etas <- file.info(file_paths_filtered) %>% as.data.frame() %>% rownames_to_column() %>%
-  rename(filname='rowname') %>%arrange((mtime)) %>%tail(n=1) %>%pull(filname) %>% read.csv()  %>%
+  rename(filname='rowname') %>%arrange((mtime)) %>%tail(n=1) %>%pull(filname) %>% print(.) %>% read.csv()  %>%
   rename_with(~ sapply(.x, function(x) {
     if (any(sapply(model_based_patterns, function(p) grepl(p, x)))) {
       paste0('COP_three_etas_', x)
@@ -260,7 +209,7 @@ coop.data <- coop.data %>%
 bd.data <- file.info(list.files('./BlindDating/output/fits_and_model_free/prolific',
                                   pattern='BD', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() %>%
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() %>%
   rename(id = subject) %>%  # Rename 'subject' to 'id'
   rename_with(~paste0('BD_',.), -id)
 
@@ -270,7 +219,7 @@ bd.data <- file.info(list.files('./BlindDating/output/fits_and_model_free/prolif
 factor.data <- file.info(list.files('../data/prolific/factor_scores/',
                                 pattern='factor_scores', full.names = T)) %>% 
   as.data.frame %>% rownames_to_column(.) %>% rename(filname='rowname') %>% 
-  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% read.csv() 
+  arrange(mtime) %>% tail(n=1) %>% pull(filname) %>% print(.) %>% read.csv() 
 
 
 ## =========== Combine ============

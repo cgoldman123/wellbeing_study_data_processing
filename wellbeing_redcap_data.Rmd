@@ -1,0 +1,1072 @@
+---
+title: "wellbeing_redcap_data"
+output: html_document
+date: "2024-07-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries}
+
+library(tidyverse)  # Keep script tidy
+library(glue)       # String formatting throughout
+library(pbapply)    # Progress bars for *apply functions
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(qwraps2)
+library(reshape2)
+library(data.table)
+library(car)
+library(psych)
+library(magrittr)
+library(REDCapR) 
+rm(list = ls())
+
+
+```
+
+```{r Pull data with API}
+## REDCAP ----
+wellbeing.fields <-
+  c("record_id",
+    "dshbrd_sex_birth",
+    "dshbrd_age",
+    "dshbrd_meds",
+    "dshbrd_day1_cb",
+    "dshbrd_day2_cb",
+    "dshbrd_studyday1",
+    "dshbrd_studyday2",
+    "dshbrd_eyecalibtaskstat",
+    "dshbrd_facestaskstat",
+    "dshbrd_eyecalib1stat",
+    "dshbrd_advicestaskstat",
+    "dshbrd_eyecalib2stat",
+    "dshbrd_blinddatetaskstat",
+    "dshbrd_eyecalib3stat",
+    "dshbrd_socialmediataskstat",
+    "dshbrd_eyecalib4stat",
+    "dshbrd_heatbeatcounttask",
+    "dshbrd_eyecalib5stat",
+    "dshbrd_cooptask",
+    "dshbrd_med_drug_alcohol",
+    "dshbrd_neuro_leas",
+    "dshbrd_faces_task",
+    "dshbrd_eeg_ecg",
+    "dshbrd_advices_task",
+    "dshbrd_blinddate_task",
+    "dshbrd_social_media_task",
+    "dshbrd_heartbeat_tapping_task",
+    "dshbrd_cooperation_task",
+    "study_dashboard_complete",
+    "gif_tx_group",
+    "group_indicator_form_complete",
+    paste0("cbi_", 1:6),
+    paste0("cbi_7___", 1:8),
+    "cbi_7a",
+    "cultural_background_information_complete",
+    paste0("incdol_", 1:10, "_v2"), # corrected indcol
+    paste0("indcol_", 11:32, "_v2"), # corrected indcol
+    paste0("incdol_", 1:10), # old indcol
+    paste0("indcol_", 11:32), # old indcol
+
+    paste0("wba_", 1:14),
+    "wba_eh_score", #this score needs to be inverted
+    "wba_ph_score", #this score needs to be inverted
+    "wba_mp_score",
+    "wba_cs_score",
+    paste0("wba_", 28:40),
+    "wba_sc_score", #this score needs to be inverted
+    "wba_fs_score", #this score needs to be inverted
+    "wba_overall_score", #this score needs to be inverted
+     paste0("riff_wb_", 1:42),
+     paste0("riff_wb_", 1:42, "_v2"),
+    "riff_wb_autonomy_score",#old
+    "riff_wb_environmental_score",#old
+    "riff_wb_personal_score",#old
+    "riff_wb_positive_score",#old
+    "riff_wb_purpose_score",#old
+    "riff_wb_acceptance_score", #old
+    "riff_wb_autonomy_score_v2", # corrected
+    "riff_wb_environmental_score_v2",# corrected
+    "riff_wb_personal_score_v2",# corrected
+    "riff_wb_positive_score_v2",# corrected
+    "riff_wb_purpose_score_v2",# corrected
+    "riff_wb_acceptance_score_v2",# corrected
+     paste0("panasx_", c("posaffect","negaffect","fear","hostility","guilt","joviality","selfassurance","attentiveness","shyness","fatigue","serenity","surprise"), "_score"),
+    "qes_score",
+    "statehood_pathways",
+    "statehood_agency",
+    "statehood_total",
+    "traithope_agency_score",
+    "traithope_pathway_score",
+    "traithope_total_score",
+    "swls_score",
+    "ihs_score_v2", # corrected
+    "ihs_score", # old
+    "ls_csass_1",
+    "ls_csass_2",
+    "ls_oecd_b4",
+    "ls_oecd_b3",
+    "hils_score",
+     paste0("mhs_", 1:12),
+    "dpes_score_v2", # corrected
+    "dpes_score", # old
+     paste0("dpes_", 1:38, "_v2"),
+     paste0("dpes_", 1:38),
+    "mlq_presence_score",
+    "mlq_search_score",
+    "vps_score_v2", # corrected
+    "vps_score", # old
+    "ncs_short_score",
+    "wolf_absorption_score",
+    "wolf_workenjoyment_score",
+    "wolf_iwm_score",
+    "gfi_1_v2", # corrected
+    "gfi_2_v2", # corrected
+    "gfi_1", # old
+    "gfi_2", # old
+    "cit_score_v2", # corrected
+    "cit_score", # old
+     paste0("cit_", 1:55),
+     paste0("cit_", 1:55, "_v2"),
+    "lot_r_score", #old
+    "lot_r_score_v2", #corrected
+     paste0("lot_r_", 1:10),
+     paste0("lot_r_", 1:10, "_v2"),
+     paste0("shs_", 1:4),
+    "sbi_anticipating_score",
+    "sbi_savoring_score",
+    "sbi_reminiscing_score",
+    "sbi_total_score",
+    "sticsa_state_cognitive_score",
+    "sticsa_state_somatic_score",
+    "sticsa_trait_cognitive_score_fixed",
+    "sticsa_trait_somatic_score_fixed",
+     paste0("ctq_", c("denial","emoabuse","emoneglect","physabuse","physneglect","sexabuse"), "_score"),
+     paste0("ctq_q", 1:28),
+    "ctq_score",
+    "pclc_total",
+    "leas_id",
+    "svs_individual_score",
+    "svs_state_score",
+    "fss_absorption_score", #old
+    "fss_fluency_score", #old
+    "fss_absorption_score_v2", #corrected
+    "fss_fluency_score_v2", #corrected
+    "vhs_scoring",
+     paste0("vhs_", 1:8),
+    "crt7_score",
+     paste0("crt7_", 1:7),
+     paste0("vcrt_", 1:10),
+    "sciqol_bank_v10_positive_affect_and_wellbeing_tscore",
+    "promis_bank_v20_emotional_support_tscore",
+    "promis_bank_v10_social_sat_role_tscore",
+    "promis_bank_v10_sleeprelated_impairment_tscore",
+    "promis_bank_v20_social_isolation_tscore",
+     paste0("maia_", c("noticing","notdistracting", "notworrying", 
+                       "attreg", "emoaware",
+                       "selfreg", "bodylisten","trusting"), "_score"),
+    "dast_score",
+    "hpq_employed",
+     paste0("hpq_", c("b3","b4","b5a","b5b","b5c","b5d","b5e","b6", "b9","b10","b11")),
+    "whodas_total_score",
+     paste0("whodas_", c("h1","h2","h3")),
+    "dts_sf_score",
+    "phq_score",
+    "oasis_score",
+    "asi3_score",
+    "asi3_physical_score",
+    "asi3_cognitive_score",
+    "asi3_social_score",
+     paste0("tas_", 1:20),
+    "staipre_state_score_corrected", #corrected
+    "staipre_trait_score_corrected", #corrected
+    "staipre_state_score", #old
+    "staipre_trait_score", #old
+     paste0("teps_", 1:18),
+     paste0("uppsp_", 1:59),
+    "uppsp_negurgency_score",
+    "uppsp_score_lackpersev",
+    "uppsp_score_sensseek",
+     paste0("bisbas_", 1:24),
+     paste0("dfas_", 1:36),
+    "list_sort_fully_corrected_t_score",
+    "zansrv_score",
+     paste0("bfi_", 1:44),
+    "bfi_extraversion_score",
+    "bfi_agreeableness_score",
+    "bfi_conscientiousness_score",
+    "bfi_neuroticism_score",
+    "bfi_openness_score",
+    "panasx_negaffect_score",
+    "panasx_posaffect_score",
+    "panasx_fear_score",
+    "panasx_hostility_score",
+    "panasx_guilt_score",
+    "panasx_sadness_score",
+    "panasx_joviality_score",
+    "panasx_selfassurance_score",
+    "panasx_attentiveness_score",
+    "panasx_shyness_score",
+    "panasx_fatigue_score",
+    "panasx_serenity_score",
+    "panasx_surprise_score",
+     paste0("qes_", 1:14),
+     paste0("ls_csass_", 1:2),
+     paste0("ls_oecd_", c("b3", "b4"))
+    )
+
+
+
+  
+
+get.redcap.data <- function(R.fields){
+  redcap_read(
+    redcap_uri = "https://redcap.laureateinstitute.org/redcap/api/",
+    token = "A869CF96ABD987D98AC9129179DB8BBA",
+    fields = R.fields
+  )
+}
+
+data = get.redcap.data(wellbeing.fields) %$% data
+
+# find columns where value for both rows of an ID are not NA
+results <- data %>%
+  group_by(record_id) %>%
+  dplyr::summarise(across(everything(), ~ sum(!is.na(.)) == 2)) %>% 
+  dplyr::summarise(across(everything(), any), .groups = "drop")
+names(results)[which(results[1, ] == TRUE)]
+
+# pivot these columns wider
+data_wide <- data %>%
+  pivot_wider(
+    id_cols = setdiff(names(data), c("sticsa_state_cognitive_score", "sticsa_state_somatic_score", "redcap_event_name")),  # Keep all other columns except the ones you're spreading and the event name column
+    names_from = redcap_event_name,  # Column to take new column names from
+    values_from = c("sticsa_state_cognitive_score", "sticsa_state_somatic_score"),  # Columns to spread
+    names_sep = "_"  # Separator for new column names
+  )
+
+# compress the dataframe to get only one row per ID
+# data_compressed <- data_wide %>%
+#   group_by(record_id) %>%
+#   summarise(across(everything(), ~ first(na.omit(.))), .groups = "drop")
+
+data_compressed <- data_wide %>%
+  group_by(record_id) %>%
+  reframe(across(everything(), ~ first(na.omit(.))), .groups = "drop")
+
+result <- data_wide %>%
+  group_by(record_id) %>%
+  summarise(across(everything(), ~ ifelse(is.na(.x[1]), .x[2], .x[1])), .groups = 'drop')
+
+
+
+######### Demographic Variables ###############################################
+data.renamed = result %>%
+  rename(id = 'record_id',
+         sex= 'dshbrd_sex_birth',
+         age= 'dshbrd_age',
+         medicated = 'dshbrd_meds',
+         day1_cb = 'dshbrd_day1_cb',
+         day2_cb = 'dshbrd_day2_cb',
+         day1_date = 'dshbrd_studyday1',
+         day2_date = 'dshbrd_studyday2',
+         drug_alcohol_test_notes = 'dshbrd_med_drug_alcohol',
+         EF_notes = 'dshbrd_faces_task',
+         physio_notes = 'dshbrd_eeg_ecg',
+         AD_notes = 'dshbrd_advices_task',
+         BD_notes = 'dshbrd_blinddate_task',
+         SM_notes = 'dshbrd_social_media_task',
+         HB_notes = 'dshbrd_heartbeat_tapping_task',
+         COP_notes = 'dshbrd_cooperation_task'
+         ) %>% select(c(-starts_with("dshbrd")),-study_dashboard_complete) %>%
+  mutate(medicated = 2- medicated,
+         day1_cb = case_when(
+              day1_cb == 0 ~ "CB1",
+              day1_cb == 1 ~ "CB2",
+              TRUE ~ as.character(day1_cb)),
+         day2_cb = case_when(
+              day2_cb == 0 ~ "CB1",
+              day2_cb == 1 ~ "CB2",
+              TRUE ~ as.character(day2_cb)),   
+         day1_date = as.Date(day1_date, origin = "1970-01-01"),
+         day2_date = as.Date(day2_date, origin = "1970-01-01"))
+         
+
+######### TAS/BISBAS ###############################################
+
+data.renamed = data.renamed %>%
+  select(-contains('redcap_')) %>%
+  mutate(TAS_dif = (tas_1+tas_3+tas_6+tas_7+tas_9+tas_13+tas_14)) %>%
+  mutate(TAS_ddf = (tas_2+(6-tas_4)+tas_11+tas_12+tas_17)) %>%
+  mutate(TAS_eot = ((6-tas_5)+tas_8+(6-tas_10)+tas_15+tas_16+(6-tas_18)+(6-tas_19)+tas_20))%>%
+  mutate(TAS_total = TAS_dif+TAS_ddf+TAS_eot) %>%
+  select(-starts_with('tas_')) %>%
+  mutate(BIS_total = bisbas_2+(5-bisbas_8)+(5-bisbas_13)+(5-bisbas_16)+(5-bisbas_19)+bisbas_22+(5-bisbas_24)) %>%
+  mutate(BAS_drive = (5-bisbas_3)+(5-bisbas_9)+(5-bisbas_12)+(5-bisbas_21)) %>%
+  mutate(BAS_funseeking = (5-bisbas_5)+(5-bisbas_10)+(5-bisbas_15)+(5-bisbas_20)) %>%
+  mutate(BAS_reward = (5-bisbas_4)+(5-bisbas_7)+(5-bisbas_14)+(5-bisbas_18)+(5-bisbas_23)) %>%
+  mutate(BAS_total = BAS_drive+BAS_funseeking+BAS_reward) %>%
+  select(-starts_with('bisbas_'))
+
+######### Well-being Assessment ####################################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    WB_emohealth = (wba_1 + wba_2 + wba_3 + wba_4 + (10 - wba_5) + (10 - wba_6) + wba_7) / 7,
+    WB_physhealth = (wba_8 + wba_9 + wba_10 + wba_11 + (10 - wba_12) + wba_13 + wba_14) / 7,
+    WB_meanpurpose = wba_mp_score,
+    WB_charstrengths = wba_cs_score,
+    WB_socialconnect = (wba_28 + wba_29 + (10 - wba_30) + wba_31 + wba_32 + wba_33 + wba_34) / 7,
+    WB_financial = (wba_35 + (10 - wba_36) + wba_37 + wba_38 + wba_39 + (10 - wba_40)),
+    WB_overall = (WB_emohealth + WB_physhealth + WB_meanpurpose + WB_charstrengths + WB_socialconnect + WB_financial) / 6,
+  ) %>%
+  select(-starts_with('wba_'))
+
+######### PANASX ###################################################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    PANAS_negaffect = panasx_negaffect_score,
+    PANAS_posaffect = panasx_posaffect_score,
+    PANAS_fear = panasx_fear_score,
+    PANAS_hostility = panasx_hostility_score,
+    PANAS_guilt = panasx_guilt_score,
+    PANAS_sadness = panasx_sadness_score,
+    PANAS_joviality = panasx_joviality_score,
+    PANAS_selfassure = panasx_selfassurance_score,
+    PANAS_attentive = panasx_attentiveness_score,
+    PANAS_shyness = panasx_shyness_score,
+    PANAS_fatugue = panasx_fatigue_score,
+    PANAS_serenity = panasx_serenity_score,
+    PANAS_surprise = panasx_surprise_score
+  ) %>%
+  select(-starts_with('panasx_'))
+  
+######### QES ######################################################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result = qes_1+(6-qes_2)+qes_3+qes_4+qes_5+(6-qes_6)+qes_7+qes_8+qes_9+(6-qes_10)+
+    (6-qes_11)+qes_12+qes_13+(6-qes_14)) %>%
+  select(-starts_with('qes')) %>%
+  rename(QES_total = result)
+
+######### STATE HOPE ###############################################
+
+data.renamed <- data.renamed %>%
+  mutate(
+   HOPE_s_pathways = statehood_pathways,
+   HOPE_s_agency = statehood_agency,
+   HOPE_s_total = statehood_total) %>%
+  select(-starts_with('statehood_'))
+  
+######### TRAIT HOPE ###############################################
+  
+data.renamed <- data.renamed %>%
+  mutate(
+    HOPE_t_pathways =  traithope_pathway_score,
+    HOPE_t_agency = traithope_agency_score,
+    HOPE_t_total = traithope_total_score) %>%
+  select(-starts_with('traithope_'))
+
+######### SWLS #####################################################
+  
+data.renamed <- data.renamed %>%
+  mutate(
+    SWLS_total = swls_score) %>%
+  select(-'swls_score')
+  
+######### LADDER #######################
+  
+data.renamed <- data.renamed %>%
+  mutate(
+    Ladder_personal_step = ls_csass_1,
+    Ladder_5yrs_standout = ls_oecd_b4,
+    Ladder_5yrsago_sat = ls_csass_2,
+    Ladder_5yrs_sat = ls_oecd_b3) %>%
+  select(-starts_with('ls_csass_')) %>%
+  select(-starts_with('ls_oecd_'))
+  
+######### HILS #########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    HILS_total = hils_score) %>%
+  select(-starts_with('hils_score'))
+
+######### MHS ##########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result = (mhs_1 + mhs_2 + mhs_3 + (6 - mhs_4) + mhs_5 + mhs_6 + 
+    (6 - mhs_7) + mhs_8 + mhs_9 + mhs_10 + (6 - mhs_11) + mhs_12)) %>%
+  select(-starts_with('mhs_')) %>%
+  rename(MHS_total = result)
+
+######### MLQ ##########################
+  
+data.renamed <- data.renamed %>%
+  mutate(
+    result1 = mlq_presence_score,
+    result2 = mlq_search_score) %>%
+  select(-starts_with("mlq_")) %>%
+  rename(MLQ_presence = result1) %>%
+  rename(MLQ_search = result2)
+
+######### NCS_short ####################
+  
+data.renamed <- data.renamed %>%
+  mutate(
+    result = ncs_short_score) %>%
+  select(-starts_with("ncs_")) %>%
+  rename(NCS_total = result)
+  
+######### WOLF #########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result1 = wolf_absorption_score,
+    result2 = wolf_workenjoyment_score,
+    result3 = wolf_iwm_score) %>%
+  select(-starts_with("wolf_")) %>%
+  rename(WOLF_absorption = result1) %>%
+  rename(WOLF_workenjoy = result2) %>%
+  rename(WOLF_intrinmotiv = result3)
+
+######### SHS #########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result = shs_1+shs_2+shs_3+(8-shs_4)) %>%
+  select(-starts_with("shs_")) %>%
+  rename(SHS_total = result )
+  
+######### SBI #########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result1 = sbi_anticipating_score,
+    result2 = sbi_savoring_score,
+    result3 = sbi_reminiscing_score,
+    result4 = sbi_total_score) %>%
+  select(-starts_with("sbi_")) %>%
+  rename(SBI_anticipating = result1) %>%
+  rename(SBI_savoring = result2) %>%
+  rename(SBI_reminiscing = result3) %>%
+  rename(SBI_total = result4)
+
+######### STICSA STATE ################
+
+data.renamed <- data.renamed %>%
+  mutate(
+      STICSA_s_somatic_visit_1 = sticsa_state_somatic_score_visit_1_arm_1,
+      STICSA_s_somatic_visit_2 = sticsa_state_somatic_score_visit_2_arm_1,
+      STICSA_s_cognitive_visit_1 = sticsa_state_cognitive_score_visit_1_arm_1,
+      STICSA_s_cognitive_visit_2 = sticsa_state_cognitive_score_visit_2_arm_1) %>%
+  select(-starts_with("sticsa_state_"))
+  
+######### STICSA TRAIT(CHECKED) ###############
+
+data.renamed <- data.renamed %>%
+    mutate(
+      STICSA_t_somatic = sticsa_trait_somatic_score_fixed,
+      STICSA_t_cognitive = sticsa_trait_cognitive_score_fixed) %>%
+    select(-starts_with("sticsa_trait_"))
+
+######### CTQ ########################
+
+data.renamed <- data.renamed %>% 
+  mutate(
+    CTQ_emoabuse = ctq_emoabuse_score,
+    CTQ_emoneglect = ctq_emoneglect_score,
+    CTQ_physabuse = ctq_q9+ctq_q10+ctq_q11+ctq_q15+ctq_q16,
+    CTQ_physneglect = ctq_physneglect_score,
+    CTQ_sexabuse = ctq_sexabuse_score,
+    CTQ_denial = ctq_denial_score,
+    CTQ_total = ctq_score) %>%
+  select(-starts_with("ctq_q"),-ctq_denial_score,
+         -ctq_emoabuse_score,-ctq_emoneglect_score, -ctq_physabuse_score,
+         -ctq_physneglect_score, -ctq_sexabuse_score, -ctq_score)
+
+######### PCL ########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    PCL_total = pclc_total) %>%
+  select(-starts_with("pclc_"))
+
+######### SVS ########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    SVS_inddiff = svs_individual_score,
+    SVS_state = svs_state_score) %>%
+  select(-starts_with("svs_individual_")) %>%
+  select(-starts_with("svs_state_"))
+  
+######### VHS ########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    VHS_total = vhs_scoring,
+    VHS_F1 = vhs_1 + vhs_3 + vhs_5 + vhs_7,
+    VHS_F2 = vhs_2 + vhs_4 + vhs_6 + vhs_8) %>%
+  select(-vhs_scoring) %>%
+  select(-vhs_1, -vhs_2, -vhs_3, -vhs_4,
+         -vhs_5, -vhs_6, -vhs_7, -vhs_8)
+
+######### CRT-7 ######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    CRT_7_correct_answers = crt7_score,
+    CRT_7_intuitive = rowSums(
+      cbind(
+        crt7_1 %in% c("10", "ten"),
+        crt7_2 == "100",
+        crt7_3 == "24",
+        crt7_4 == "9",
+        crt7_5 == "30",
+        crt7_6 == "10",
+        crt7_7 == "2")),
+    CRT_7_incorrect_answers = 7 - CRT_7_correct_answers - CRT_7_intuitive) %>%
+  select(-starts_with("crt7_"))
+
+######### V-CRT ######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    VCRT_correct_answers = rowSums(
+      cbind(
+        ifelse(tolower(vcrt_1) %in% tolower(c("Mary")), 1, 0),
+        ifelse(tolower(vcrt_2) %in% tolower(c("second", "2nd", "2")), 1, 0),
+        ifelse(tolower(vcrt_3) %in% tolower(c("do not", "bury", "nowhere",
+                                              "alive", "not buried")), 1, 0),
+        ifelse(tolower(vcrt_4) %in% tolower(c("none", "no banana", "coconut tree")), 1, 0),
+        ifelse(tolower(vcrt_5) %in% tolower(c("one floor", "one-story",
+                                              "no stairs")), 1, 0),
+        ifelse(tolower(vcrt_6) %in% tolower(c("none", "noah", "moses didn't", "0")), 1, 0),
+        ifelse(tolower(vcrt_7) %in% tolower(c("no smoke", "train does not",
+                                              "train doesn't", "trains don't")), 1, 0),
+        ifelse(tolower(vcrt_8) %in% tolower(c("match")), 1, 0),
+        ifelse(tolower(vcrt_9) %in% tolower(c("not possible", "dead")), 1, 0),
+        ifelse(tolower(vcrt_10) %in% tolower(c("neither", "yellow", "not white")), 1, 0))),
+    VCRT_intuitive = rowSums(
+      cbind(
+        ifelse(tolower(vcrt_1) %in% tolower(c("Nunu")), 1, 0),
+        ifelse(tolower(vcrt_2) %in% tolower(c("first", "1st", "1")), 1, 0),
+        ifelse(tolower(vcrt_3) %in% tolower(c("USA", "united states", "us")), 1, 0),
+        ifelse(tolower(vcrt_4) %in% tolower(c("Bird")), 1, 0),
+        ifelse(tolower(vcrt_5) %in% tolower(c("Pink")), 1, 0),
+        ifelse(tolower(vcrt_6) %in% tolower(c("2", "two")), 1, 0),
+        ifelse(tolower(vcrt_7) %in% tolower(c("West")), 1, 0),
+        ifelse(tolower(vcrt_8) %in% tolower(c("lamp")), 1, 0),
+        ifelse(tolower(vcrt_9) %in% tolower(c("no")), 1, 0),
+        ifelse(tolower(vcrt_10) %in% tolower(c("b", "yolk is white")), 1, 0))),
+    VCRT_incorrect_answers = 10 - VCRT_correct_answers - VCRT_intuitive) %>%
+  select(-matches("^vcrt_\\d+$"))
+  
+#data.renamed <- data.renamed %>%
+#  mutate(
+#    VCRT_correct_answers = rowSums(
+#      cbind(
+#        vcrt_1 == "Mary", ignore.case = T,
+#        vcrt_2 %in% c("second","2nd","2"), ignore.case = T,
+#        vcrt_3 %in% c("do not","bury","nowhere","alive","not buried"),
+#                    ignore.case = T,
+#        vcrt_4 %in% c("none","no banana","coconut tree"), ignore.case = T,
+#        vcrt_5 %in% c("one floor","one-story","no stairs"), ignore.case = T,
+#        vcrt_6 %in% c("none", "noah","moses didn't","0"), ignore.case = T,
+#        vcrt_7 %in% c("no smoke", "train does not","train doesn't","trains don't"),
+#                    ignore.case = T,
+#        vcrt_8 == "match", ignore.case = T,
+#        vcrt_9 %in% c("not possible","dead"), ignore.case = T,
+#        vcrt_10 %in% c("neither","yellow","not white"), ignore.case = T)),
+#    VCRT_intuitive = rowSums(
+#      cbind(
+#        vcrt_1 == "Nunu", ignore.case = T,
+#        vcrt_2 %in% c("first","1st","1"), ignore.case = T,
+#        vcrt_3 %in% c("USA","united states","us"), ignore.case = T,
+#        vcrt_4 == "Bird", ignore.case = T,
+#        vcrt_5 == "Pink", ignore.case = T,
+#        vcrt_6 %in% c("2","two"), ignore.case = T,
+#        vcrt_7 == "West", ignore.case = T,
+#        vcrt_8 == "lamp", ignore.case = T,
+#        vcrt_9 == "no", ignore.case = T,
+#        vcrt_10 %in% c("b","yolk is white"), ignore.case = T)),
+#    VCRT_incorrect_answers = 7 - VCRT_correct_answers - VCRT_intuitive) %>%
+#  select(-matches("^vcrt_\\d+$"))
+
+######### PROMIS-EMOTION #############
+
+data.renamed <- data.renamed %>%
+  mutate(
+    Promis_emotional_support_score = promis_bank_v20_emotional_support_tscore,
+    Promis_sleep_score = promis_bank_v10_sleeprelated_impairment_tscore,
+    Promis_social_iso_score = promis_bank_v20_social_isolation_tscore,
+    Promis_social_sat_score = promis_bank_v10_social_sat_role_tscore) %>%
+  select(-promis_bank_v20_emotional_support_tscore,
+         -promis_bank_v10_social_sat_role_tscore,
+         -promis_bank_v20_social_isolation_tscore,
+         -promis_bank_v10_sleeprelated_impairment_tscore)
+
+######### MAIA #######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    MAIA_noticing = maia_noticing_score,
+    MAIA_distracting = maia_notdistracting_score,
+    MAIA_notworrying = maia_notworrying_score,
+    MAIA_attreg = maia_attreg_score,
+    MAIA_emoaware = maia_emoaware_score,
+    MAIA_selfreg = maia_selfreg_score,
+    MAIA_bodylisten = maia_bodylisten_score,
+    MAIA_trust = maia_trusting_score) %>%
+  select(-maia_noticing_score, -maia_notdistracting_score,
+         -maia_notworrying_score, -maia_attreg_score,
+         -maia_emoaware_score, -maia_selfreg_score,
+         -maia_bodylisten_score, -maia_trusting_score)
+
+######### DAST-10 ####################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    DAST_total = dast_score) %>%
+  select(-dast_score)
+
+######### WHOHPQ #####################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    WHOHPQ_employed = hpq_employed,
+    WHOHPQ_week_worked_hours = hpq_b3,
+    WHOHPQ_week_expected_worked_hours = hpq_b4,
+    WHOHPQ_missed_days = hpq_b5a+hpq_b5b+hpq_b5c+hpq_b5d+hpq_b5e,
+    WHOHPQ_past_4_week_worked_hours = hpq_b6,
+    WHOHPQ_work_performance = hpq_b9+hpq_b10+hpq_b11) %>%
+  select(-starts_with("hpq_"))
+
+######### WHODAS #####################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    WHODAS_total = whodas_total_score,
+    WHODAS_days_with_difficulties = whodas_h1,
+    WHODAS_days_totally_unable = whodas_h2,
+    WHODAS_days_reduce_activities = whodas_h3) %>%
+  select(-whodas_total_score) %>%
+  select(-starts_with("whodas_h"))
+
+######### DTS ########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    DTS_total = dts_sf_score) %>%
+  select(-dts_sf_score)
+  
+######### PHQ-9 ######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    PHQ_total = phq_score) %>%
+  select(-phq_score)
+
+######### OASIS ######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    OASIS_total = oasis_score) %>%
+  select(-oasis_score)
+
+######### ASI-3 ######################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    ASI_physical = asi3_physical_score,
+    ASI_cognitive = asi3_cognitive_score,
+    ASI_social = asi3_social_score,
+    ASI_total = asi3_score) %>%
+  select(-starts_with("asi3_"))
+  
+######### RYFF(CHECKED) ######################## 
+#ryff is coded backwards in redcap, meaning that 1 = 7, 2 = 6, 3 = 5, etc, need to reverse 
+ data.renamed <- data.renamed %>%
+  group_by(id) %>%
+  mutate(
+    riff_wb_autonomy_score = riff_wb_1+riff_wb_13+8-riff_wb_24+riff_wb_35+
+                             8-riff_wb_41+8-riff_wb_10+riff_wb_21, #checked, all good
+    riff_wb_autonomy_score_v2 = riff_wb_1_v2+riff_wb_13_v2+8-riff_wb_24_v2+
+                                riff_wb_35_v2+8-riff_wb_41_v2+8-riff_wb_10_v2+
+                                riff_wb_21_v2,
+    
+    riff_wb_environmental_score = riff_wb_3+8-riff_wb_15+8-riff_wb_26+riff_wb_36
+                                  +8-riff_wb_42+8-riff_wb_12+riff_wb_23, #checked, all good
+    riff_wb_environmental_score_v2 = riff_wb_3_v2+8-riff_wb_15_v2+8-riff_wb_26_v2+
+                                     riff_wb_36_v2+8-riff_wb_42_v2+8-riff_wb_12_v2+
+                                     riff_wb_23_v2,
+    
+    riff_wb_personal_score = 8-riff_wb_5+riff_wb_17+8-riff_wb_28+riff_wb_37+riff_wb_2+
+                             8-riff_wb_14+8-riff_wb_25, #checked, all good
+    riff_wb_personal_score_v2 = 8-riff_wb_5_v2+riff_wb_17_v2+8-riff_wb_28_v2+
+                                riff_wb_37_v2+riff_wb_2_v2+8-riff_wb_14_v2+
+                                8-riff_wb_25_v2,
+    
+    riff_wb_positive_score = riff_wb_7+8-riff_wb_18+8-riff_wb_30+riff_wb_38+riff_wb_4+
+                             8-riff_wb_16+riff_wb_27, #checked, all good
+    riff_wb_positive_score_v2 = riff_wb_7_v2+8-riff_wb_18_v2+8-riff_wb_30_v2+
+                                riff_wb_38_v2+riff_wb_4_v2+8-riff_wb_16_v2+
+                                riff_wb_27_v2,
+    
+    riff_wb_purpose_score = 8-riff_wb_9+riff_wb_20+8-riff_wb_32+8-riff_wb_39+
+                            riff_wb_6+riff_wb_29+8-riff_wb_33, #checked, all good
+    riff_wb_purpose_score_v2 = 8-riff_wb_9_v2+riff_wb_20_v2+8-riff_wb_32_v2+
+                               8-riff_wb_39_v2+riff_wb_6_v2+riff_wb_29_v2+
+                               8-riff_wb_33_v2,
+    
+    riff_wb_acceptance_score = riff_wb_11+riff_wb_22+8-riff_wb_34+riff_wb_40+
+                               8-riff_wb_8+8-riff_wb_19+riff_wb_31, #checked, all good
+    riff_wb_acceptance_score_v2 = riff_wb_11_v2+riff_wb_22_v2+8-riff_wb_34_v2+
+                                  riff_wb_40_v2+8-riff_wb_8_v2+8-riff_wb_19_v2+
+                                  riff_wb_31_v2,
+    
+    RYFF_autonomy = coalesce(riff_wb_autonomy_score, riff_wb_autonomy_score_v2),
+    RYFF_envmastery = coalesce(riff_wb_environmental_score,
+                               riff_wb_environmental_score_v2),
+    RYFF_persgrowth = coalesce(riff_wb_personal_score, riff_wb_personal_score_v2),
+    RYFF_posrelations = coalesce(riff_wb_positive_score, riff_wb_positive_score_v2),
+    RYFF_purposelife = coalesce(riff_wb_purpose_score, riff_wb_purpose_score_v2),
+    RYFF_selfaccept = coalesce(riff_wb_acceptance_score, riff_wb_acceptance_score_v2),
+    RYFF_total = RYFF_autonomy + RYFF_envmastery + RYFF_persgrowth + RYFF_posrelations +
+      RYFF_purposelife + RYFF_selfaccept) %>%
+  ungroup() %>%
+  select(-starts_with("riff_"))
+ 
+######### DPES(CHECKED) ######################
+  
+  data.renamed <- data.renamed %>%
+    mutate(
+      DPES_joy = (dpes_1+dpes_2+dpes_3+dpes_4+dpes_5+dpes_6)/6 , #checked, all good
+      DPES_joy_v2 = (dpes_1_v2+dpes_2_v2+dpes_3_v2+dpes_4_v2+dpes_5_v2+dpes_6_v2)/6,
+      
+      DPES_content = (dpes_7+dpes_8+dpes_9+dpes_10+dpes_11)/5, #checked, all good
+      DPES_content_v2 = (dpes_7_v2+dpes_8_v2+dpes_9_v2+dpes_10_v2+dpes_11_v2)/5,
+      
+      DPES_pride = (dpes_12+dpes_13+dpes_14+dpes_15+dpes_16)/5, #checked, all good
+      DPES_pride_v2 = (dpes_12_v2+dpes_13_v2+dpes_14_v2+dpes_15_v2+dpes_16_v2)/5,
+      
+      DPES_love = (dpes_17+dpes_18+dpes_19+dpes_20+dpes_21+dpes_22)/6, #checked, all good
+      DPES_love_v2 = (dpes_17_v2+dpes_18_v2+dpes_19_v2+dpes_20_v2+dpes_21_v2+dpes_22_v2)/6,
+      
+      DPES_compassion = (dpes_23+dpes_24+dpes_25+dpes_26+dpes_27)/5, #checked, all good
+      DPES_compassion_v2 = (dpes_23_v2+dpes_24_v2+dpes_25_v2+dpes_26_v2+dpes_27_v2)/5,
+      
+      DPES_amusement = (dpes_28+dpes_29+dpes_30+dpes_31+dpes_32)/5, #checked, all good
+      DPES_amusement_v2 = (dpes_28_v2+dpes_29_v2+dpes_30_v2+dpes_31_v2+dpes_32_v2)/5,
+      
+      DPES_awe = (dpes_33+dpes_34+dpes_35+dpes_36+dpes_37+dpes_38)/6, #checked, all good
+      DPES_awe_v2 = (dpes_33_v2+dpes_34_v2+dpes_35_v2+dpes_36_v2+dpes_37_v2+dpes_38_v2)/6,
+      
+      DPES_total = DPES_joy+DPES_content+DPES_pride+DPES_love+DPES_compassion+
+                   DPES_amusement + DPES_awe,
+      DPES_total_v2 = DPES_joy_v2 + DPES_content_v2 + DPES_pride_v2 + DPES_love_v2 + 
+                      DPES_compassion_v2 + DPES_amusement_v2 + DPES_awe_v2) %>%
+    mutate(
+      joy = coalesce(DPES_joy, DPES_joy_v2),
+      content = coalesce(DPES_content, DPES_content_v2),
+      pride = coalesce(DPES_pride, DPES_pride_v2),
+      love = coalesce(DPES_love, DPES_love_v2),
+      compassion = coalesce(DPES_compassion, DPES_compassion_v2),
+      amusement = coalesce(DPES_amusement, DPES_amusement_v2),
+      awe = coalesce(DPES_awe, DPES_awe_v2),
+      total = coalesce(DPES_total, DPES_total_v2)) %>%
+    select(-starts_with("dpes_")) %>%
+    rename_with(~ paste0("DPES_", .), c(joy,content, pride, love, compassion,
+                                        amusement, awe, total))
+
+######### LOT-R(CHECKED) #####################  
+
+data.renamed <- data.renamed %>%
+  mutate(
+    LOTR_total = lot_r_1+(4-lot_r_3)+lot_r_4+(4-lot_r_7)+(4-lot_r_9)+lot_r_10,
+    LOTR_total_v2 =lot_r_1_v2+(4-lot_r_3_v2)+lot_r_4_v2+(4-lot_r_7_v2)+
+      (4-lot_r_9_v2)+lot_r_10_v2) %>% 
+  select(-starts_with("lot_r")) %>%
+  mutate(
+    LOTR_total = coalesce(LOTR_total, LOTR_total_v2)) %>%
+  select(-LOTR_total_v2)
+
+######### STAI STATE/TRAIT(REVISED) ################
+
+data.renamed <- data.renamed %>%
+  group_by(id) %>%
+  mutate(
+    STAI_s_total = coalesce(staipre_state_score, staipre_state_score_corrected),
+    STAI_t_total = coalesce(staipre_trait_score, staipre_trait_score_corrected)
+  ) %>%
+  select(-starts_with("staipre_"))
+  
+######### DATA ORG ########################
+
+data.renamed <- data.renamed %>%
+  filter(grepl("^[A-Za-z]{2}[0-9]{3}$", as.character(id))) %>%
+  select(-list_sort_fully_corrected_t_score)
+
+######### TEPS ############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    anticipatory = teps_18+teps_15+(7-teps_13)+teps_11+teps_10+teps_8+teps_6+
+                        teps_4+teps_16+teps_1,
+    consumatory = teps_17+teps_14+teps_3+teps_2+teps_7+teps_5+teps_12+teps_9
+    ) %>%
+  select(-starts_with("teps_")) %>%
+  rename_with(~ paste0("TEPS_", .), c(anticipatory, consumatory))
+
+######### UPPSP ###########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    negurg = uppsp_54+(5-uppsp_58)+(5-uppsp_51)+(5-uppsp_44)+(5-uppsp_39)+
+                   (5-uppsp_34)+(5-uppsp_29)+(5-uppsp_22)+(5-uppsp_17)+(5-uppsp_12)+
+                   (5-uppsp_7)+(5-uppsp_2),
+    lackpremed = uppsp_1+uppsp_6+uppsp_11+uppsp_16+uppsp_21+uppsp_28+uppsp_33+
+                       uppsp_38+uppsp_43+uppsp_48+uppsp_49,
+    lackpreserv = uppsp_4+(5-uppsp_9)+uppsp_14+uppsp_19+uppsp_24+uppsp_27+
+                       uppsp_32+uppsp_37+uppsp_42+(5-uppsp_47),
+    senseeking = 5-uppsp_3+5-uppsp_8+5-uppsp_13+5-uppsp_18+5-uppsp_23+5-uppsp_26+
+                       5-uppsp_31+5-uppsp_36+5-uppsp_41+5-uppsp_46+5-uppsp_52+5-uppsp_56,
+    posurg = 5-uppsp_5+5-uppsp_10+5-uppsp_15+5-uppsp_20+5-uppsp_25+5-uppsp_30+
+                   5-uppsp_35+5-uppsp_40+5-uppsp_45+5-uppsp_50+5-uppsp_53+5-uppsp_55+
+                   5-uppsp_57+5-uppsp_59) %>%
+  select(-starts_with("uppsp_")) %>%
+  rename_with(~paste0("UPPSP_", .), c(negurg, lackpremed, lackpreserv, senseeking, posurg))
+
+######### DFAS ############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    DFAS_total = dfas_1+7-dfas_2+dfas_3+dfas_4+dfas_5+7-dfas_6+dfas_7+7-dfas_8+7-dfas_9+
+                 dfas_10+dfas_11+dfas_12+dfas_13+7-dfas_14+dfas_15+dfas_16+7-dfas_17+
+                 dfas_18+7-dfas_19+7-dfas_20+dfas_21+dfas_22+dfas_23+7-dfas_24+dfas_25+
+                 7-dfas_26+dfas_27+dfas_28+7-dfas_29+7-dfas_30) %>%
+  select(-matches("^dfas_\\d+$"))
+
+######### ZAN SRV #########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    ZAN_total = zansrv_score) %>%
+  select(-starts_with("zansrv"))
+
+######### FSS #############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    absorption = coalesce(fss_absorption_score, fss_absorption_score_v2),
+    fluency = coalesce(fss_fluency_score, fss_fluency_score_v2)) %>%
+  select(-starts_with("fss_")) %>%
+  rename_with(~paste0("FSS_", .), c("absorption", "fluency"))
+
+######### INDCOL(REVISED) ##########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    hi = incdol_4+incdol_2+incdol_6+incdol_8+incdol_1+incdol_5+incdol_3+incdol_7,
+    INDCOL_hi_v2 = incdol_4_v2+incdol_2_v2+incdol_6_v2+incdol_8_v2+incdol_1_v2+incdol_5_v2+
+            incdol_3_v2+incdol_7_v2,
+    
+    vi = indcol_13+incdol_9+indcol_14+indcol_15+incdol_10+indcol_11+indcol_12+
+      indcol_16,
+    INDCOL_vi_v2 = indcol_13_v2+incdol_9_v2+indcol_14_v2+indcol_15_v2+incdol_10_v2+
+            indcol_11_v2+indcol_12_v2+indcol_16_v2,
+    
+    hc = indcol_23+indcol_20+indcol_21+indcol_17+indcol_19+indcol_18+indcol_24+
+         indcol_22,
+    INDCOL_hc_v2 = indcol_23_v2+indcol_20_v2+indcol_21_v2+indcol_17_v2+indcol_19_v2+
+            indcol_18_v2+indcol_24_v2+indcol_22_v2,
+      
+    vc = indcol_26+indcol_28+indcol_31+indcol_32+indcol_25+indcol_29+
+         indcol_30+indcol_27,
+    INDCOL_vc_v2 = indcol_26_v2+indcol_28_v2+indcol_31_v2+indcol_32_v2+indcol_25_v2+
+            indcol_29_v2+indcol_30_v2+indcol_27_v2)%>%
+  mutate(
+    hi = coalesce(hi, INDCOL_hi_v2),
+    vi = coalesce(vi, INDCOL_vi_v2),
+    hc = coalesce(hc, INDCOL_hc_v2),
+    vc = coalesce(vc, INDCOL_vc_v2)) %>%
+    select(-starts_with("indcol_")) %>%
+    select(-starts_with("incdol_")) %>%
+    rename(INDCOL_hi = hi) %>%
+    rename(INDCOL_vi = vi) %>% 
+    rename(INDCOL_hc = hc) %>% 
+    rename(INDCOL_vc = vc)
+
+######### IHS #############################
+
+data.renamed <- data.renamed %>%
+  mutate(IHS_total = coalesce(ihs_score, ihs_score_v2)) %>%
+  select(-ihs_score, -ihs_score_v2) 
+
+######### BFI #############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    extraversion = bfi_1+6-bfi_6+bfi_11+bfi_16+6-bfi_21+bfi_26+6-bfi_31+bfi_36,
+    agreeable = 6-bfi_2+bfi_7+6-bfi_12+bfi_17+bfi_22+6-bfi_27+bfi_32+6-bfi_37+
+                    bfi_42,
+    conscientious = bfi_3+6-bfi_8+bfi_13+6-bfi_18+6-bfi_23+bfi_28+bfi_33+bfi_38+6-
+                       bfi_43,
+    neurotic = bfi_4+6-bfi_9+bfi_14+bfi_19+6-bfi_24+bfi_29+6-bfi_34+bfi_39,
+    openness = bfi_5+bfi_10+bfi_15+bfi_20+bfi_25+bfi_30+6-bfi_35+bfi_40+
+                   6-bfi_41+bfi_44) %>%
+    select(-starts_with("bfi_")) %>%
+    rename_with(~paste0("BFI_", .), c("neurotic", "openness", "conscientious",
+                                      "agreeable", "extraversion"))
+
+######### VPS #############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    VPS_total = coalesce(vps_score, vps_score_v2)) %>%
+  select(-starts_with("vps_score")) #checked, all good 
+
+######### CIT #############################
+
+#RELATIONSHIP
+
+data.renamed <- data.renamed %>%
+  mutate(
+    result = cit_1+cit_2+cit_3, #checked, all good
+    result_v2 = cit_1_v2+cit_2_v2+cit_3_v2,
+    CIT_relationship_support = coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_4+cit_5+cit_6, #checked, all good
+    result_v2 = cit_4_v2+cit_5_v2+cit_6_v2,
+    CIT_relatioship_community = coalesce(result, result_v2)) %>%
+  mutate(  
+    result = cit_7+cit_8+cit_9, #checked, all good
+    result_v2 = cit_7_v2+cit_8_v2+cit_9_v2,
+    CIT_relationship_trust = coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_10+cit_11+cit_12, #checked, all good 
+    result_v2 = cit_10_v2+cit_11_v2+cit_12_v2,
+    CIT_relationship_respect = coalesce(result, result_v2)) %>%
+  mutate(
+    result = 6-cit_13+6-cit_14+6-cit_15, #checked, all good
+    result_v2 = 6-cit_13_v2+6-cit_14_v2+6-cit_55_v2,
+    CIT_relationship_lack_of_loneliness =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_16+cit_17+cit_18, #checked, all good
+    result_v2 = cit_16_v2+cit_17_v2+cit_18_v2,
+    CIT_relationship_belonging =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_1+cit_2+cit_3+cit_4+cit_5+cit_6+cit_7+cit_8+cit_9+
+             cit_10+cit_11+cit_12+6-cit_13+6-cit_14+6-cit_15+cit_16+
+             cit_17+cit_18, #checked, all good
+    result_v2 = cit_1_v2+cit_2_v2+cit_3_v2+cit_4_v2+cit_5_v2+cit_6_v2+
+                cit_7_v2+cit_8_v2+cit_9_v2+cit_10_v2+cit_11_v2+cit_12_v2+
+                6-cit_13_v2+6-cit_14_v2+6-cit_55_v2+cit_16_v2+cit_17_v2+
+                cit_18_v2,
+    CIT_relationship = coalesce(result, result_v2)) %>% 
+    
+#CIT ENGAGEMENT
+  
+  mutate(
+    result = cit_19+cit_20+cit_21, #checked, all good
+    result_v2 =cit_19_v2+cit_20_v2+cit_21_v2,
+    CIT_engagement =coalesce(result, result_v2)) %>%
+
+#CIT MASTERY
+  
+  mutate(
+    result = cit_22+cit_23+cit_24, #checked, all good
+    result_v2 = cit_22_v2+cit_23_v2+cit_24_v2,
+    CIT_mastery_skills =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_25+cit_26+cit_27, #checked, all good
+    result_v2 = cit_25_v2+cit_26_v2+cit_27_v2,
+    CIT_mastery_learning =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_28+cit_29+cit_30, #checked, all good
+    result_v2 = cit_28_v2+cit_29_v2+cit_30_v2,
+    CIT_mastery_accomplishment =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_31+cit_32+cit_33, #checked, all good
+    result_v2 = cit_31_v2+cit_32_v2+cit_33_v2,
+    CIT_mastery_self_efficacy =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_34+cit_35+cit_36, #checked, all good 
+    result_v2 = cit_34_v2+cit_35_v2+cit_36_v2,
+    CIT_mastery_self_worth =coalesce(result, result_v2)) %>%
+
+#CIT AUTONOMY
+
+  mutate(
+    result = 6-cit_37+6-cit_38 +6-cit_39, #checked, all good
+    result_v2 = 6-cit_37_v2+6-cit_38_v2+6-cit_39_v2,
+    CIT_autonomy = coalesce(result, result_v2)) %>%
+
+#CIT MEANING
+  
+  mutate(
+    result = cit_40+cit_41+cit_42, #checked, all good
+    result_v2 = cit_40_v2+cit_41_v2+cit_42_v2,
+    CIT_meaning =coalesce(result, result_v2)) %>%
+
+#CIT OPTIMISM
+  
+  mutate(
+    result = cit_43+cit_44+cit_45, #checked, all good 
+    result_v2 = cit_43_v2+cit_44_v2+cit_45_v2,
+    CIT_optimism =coalesce(result, result_v2)) %>%
+
+#CIT SWB
+  
+  mutate(
+    result = cit_46+cit_47+cit_48, #checked, all good 
+    result_v2 = cit_46_v2+cit_47_v2+cit_48_v2,
+    CIT_swb_life_satisfaction =coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_49+cit_50+cit_51, #checked, all good 
+    result_v2 = cit_49_v2+cit_50_v2+cit_51_v2,
+    CIT_swb_pos_feelings =coalesce(result, result_v2)) %>%
+  mutate(  
+    result = 6-cit_52+6-cit_53+6-cit_54, #checked, all good
+    result_v2 = 6-cit_52_v2+6-cit_53_v2+6-cit_54_v2,
+    CIT_swb_non_neg_feelings = coalesce(result, result_v2)) %>%
+  mutate(
+    result = cit_46+cit_47+cit_48+cit_49+cit_50+cit_51+
+             6-cit_52+6-cit_53+6-cit_54,
+    result_v2 =cit_46_v2+cit_47_v2+cit_48_v2+cit_49_v2+cit_50_v2+cit_51_v2+
+               6-cit_52_v2+6-cit_53_v2+6-cit_54_v2,
+    CIT_swb = coalesce(result, result_v2), 
+    CIT_total = coalesce(cit_score, cit_score_v2)) %>%
+  select(-matches("^cit_\\d+$"), -cit_score, -cit_score_v2, -matches("^cit_\\d+(_v2)?$"))
+
+######### GFI #############################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    total = gfi_2,
+    GFI_total_v2 =gfi_2_v2-1,
+    total = coalesce(total, GFI_total_v2)) %>%
+  select(-starts_with("GFI_")) %>%
+  rename(GFI_total = total)
+
+######### SCIQOL ##########################
+
+data.renamed <- data.renamed %>%
+  mutate(
+    SCIQOL_total = sciqol_bank_v10_positive_affect_and_wellbeing_tscore) %>%
+  select(-sciqol_bank_v10_positive_affect_and_wellbeing_tscore)
+```
+
+```{r Save dataframe}
+write.csv(data.renamed,"L:\\rsmith\\wellbeing\\data\\local\\SWB_local_redcap.csv")
+
+```
+

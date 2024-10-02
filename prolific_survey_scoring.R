@@ -26,7 +26,7 @@ ignore.ids <- c('CLTEST', 'CGTEST','CMGTEST1', 'test',
 survey.list = c('ctq','qes','panasx','ryff_wb','sticsa_state',
                 'sticsa_trait','well_being','dpes','hils','his','upps_p',
                 'indcol', 'mhs', 'pdsq','stait_hope', 'trait_hope','swls',
-                'asi', 'cit', 'dast_10', 'dts', 'lot_r', 'maia', 'mlq', 'crt_7',
+                'asi', 'cit', 'dast_10', 'dts', 'lot_r', 'maia', 'mlq', 
                 'ncs_short', 'oasis', 'pcl_5', 'phq_8', 'shs', 'tas', 
                 'vps', 'wolf', 'gfi', 'bfi', 'fss', 'sbi', 'stai_state', 'stai_trait',
                 'svs','teps', 'vhs', 'whodas','dfas', 'bis_bas', 'promis_emotion',
@@ -34,11 +34,13 @@ survey.list = c('ctq','qes','panasx','ryff_wb','sticsa_state',
                 'promis_social_sat','promis_self_efficacy','promis_self_efficacy_manage',
                 'csass_oecd', 'health_questions')
 
+survey.list = c('pdsq')
+
 ## Functions -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 extract.survey <- function(survey_str){
   scores <- data.frame()
   for(study in c('Emotional_Faces', 'Advice', 'Blind_Dating', 'Social_Media', 'Cooperation_Task',
-                 'Emotional_Faces_CB', 'Social_Media_CB')){
+                 'Emotional_Faces_CB', 'Social_Media_CB', 'Emotional_Faces_test')){
     folder = glue('L:/NPC/DataSink/StimTool_Online/WB_{study}')
     s.files = list.files(path = folder, pattern = glue('{survey_str}_[0-9]'), full.names = T)
     s.files = s.files[!grepl(paste(ignore.ids, collapse='|'), s.files, ignore.case = T)]
@@ -455,10 +457,35 @@ pdsq_score <- function(data){
   PDSQ_hypochondria <- data %>% filter(V1 %in% paste0('question', 107:111)) %>%
     pull(V2) %>% sum
   
+  
+  
+  PDSQ_has_mdd = PDSQ_mdd >= 9 
+  PDSQ_has_ptsd = PDSQ_ptsd >= 5
+  PDSQ_has_bulimia = PDSQ_bulimia >= 7
+  PDSQ_has_ocd = PDSQ_ocd >= 1 
+  PDSQ_has_panic = PDSQ_panic >= 4
+  PDSQ_has_psychosis = PDSQ_psychosis >= 1 
+  PDSQ_has_agoraphobia = PDSQ_agoraphobia >= 4
+  PDSQ_has_social = PDSQ_social >= 4
+  PDSQ_has_alcohol = PDSQ_alcohol >= 1
+  PDSQ_has_drugs = PDSQ_drugs >= 1
+  PDSQ_has_somatization = PDSQ_somatization >= 2
+  PDSQ_has_hypochondria = PDSQ_hypochondria >= 1
+  PDSQ_has_gad = PDSQ_gad >= 7
+  
+  
+  
   final <- data.frame(PDSQ_attncheck1,PDSQ_attncheck2,PDSQ_mdd,PDSQ_ptsd,
-                      PDSQ_bulimia,PDSQ_ocd,PDSQ_panic,
+                      PDSQ_bulimia,PDSQ_ocd,PDSQ_panic,PDSQ_gad,
                       PDSQ_psychosis,PDSQ_agoraphobia,PDSQ_social,PDSQ_alcohol,
-                      PDSQ_drugs,PDSQ_somatization,PDSQ_hypochondria)
+                      PDSQ_drugs,PDSQ_somatization,PDSQ_hypochondria,
+                      
+                      PDSQ_has_mdd, PDSQ_has_ptsd, PDSQ_has_bulimia, PDSQ_has_ocd, 
+                      PDSQ_has_panic, PDSQ_has_psychosis, PDSQ_has_agoraphobia, 
+                      PDSQ_has_social, PDSQ_has_alcohol, PDSQ_has_drugs, 
+                      PDSQ_has_somatization, PDSQ_has_hypochondria, PDSQ_has_gad
+                      
+                      )
   return(final)
 }
 stait_hope_score <- function(data){
@@ -619,41 +646,6 @@ cit_score <- function(data){
   return(final)
   
 }
-crt_7_score <- function(data){
-  data <- data %>% filter(!grepl('TRQ', V1)) %>%
-    mutate(response = case_when(V1=='question1'&V2==5~2,V1=='question1'&V2==10~1,
-                                V1=='question2'&V2==5~2,V1=='question2'&V2==100~1,
-                                V1=='question3'&V2==47~2,V1=='question3'&V2==24~1,
-                                V1=='question4'&V2==4~2, V1=='question4'&V2==9~1,
-                                V1=='question5'&V2==29~2, V1=='question5'&V2==30~1,
-                                V1=='question6'&V2==20~2,V1=='question6'&V2==10~1,
-                                V1=='question7'&V2=='Item 3'~2, V1=='question7'&V2=='Item 2'~1)) %>%
-    mutate(response=ifelse(is.na(response),0,response))
-  CRT_correct_answers <- sum(data$response==2)
-  CRT_intuitive_answers <- sum(data$response==1)
-  CRT_incorrect_answers <- sum(data$response==0)
-  
-  return(data.frame(CRT_correct_answers,CRT_intuitive_answers,CRT_incorrect_answers))
-}
-v_crt_score <- function(data){
-  data <- data %>% filter(!grepl('TRQ', V1)) %>%
-    mutate(response = case_when(V1=='question1'&grepl('Mary',V2,ignore.case=T)~2,V1=='question1'&grepl('Nunu',V2,ignore.case=T)~1,
-                                V1=='question2'&grepl('second|2nd|2',V2,ignore.case=T)~2,V1=='question2'&grepl('first|1st|1',V2,ignore.case=T)~1,
-                                V1=='question3'&grepl('do not bury|nowhere|alive|not buried',V2,ignore.case=T)~2,V1=='question3'&grepl('USA|united states|us',V2,ignore.case=T)~1,
-                                V1=='question4'&grepl("none|no banana|coconut tree",V2,ignore.case=T)~2, V1=='question4'&grepl('bird',V2,ignore.case=T)~1,
-                                V1=='question5'&grepl('one floor|one-story|no stairs',V2,ignore.case=T)~2, V1=='question5'&grepl('pink',V2,ignore.case=T)~1,
-                                V1=='question6'&grepl("none|noah|moses didn't|0",V2,ignore.case=T)~2,V1=='question6'&grepl('2|two',V2,ignore.case=T)~1,
-                                V1=='question7'&grepl("no smoke|train does not|train doesn't|trains don't",V2,ignore.case=T)~2, V1=='question7'&grepl('west',V2,ignore.case=T)~1,
-                                V1=='question8'&grepl("match",V2,ignore.case=T)~2, V1=='question8'&grepl('lamp',V2,ignore.case=T)~1,
-                                V1=='question9'&grepl("not possible|dead",V2,ignore.case=T)~2, V1=='question9'&V2=='no'~1,
-                                V1=='question10'&grepl("neither|yellow|not white",V2,ignore.case=T)~2, V1=='question10'&grepl("b|yolk is white",V2,ignore.case=T)~1)) %>%
-    mutate(response=ifelse(is.na(response),0,response))
-  VCRT_correct_answers <- sum(data$response==2)
-  VCRT_intuitive_answers <- sum(data$response==1)
-  VCRT_incorrect_answers <- sum(data$response==0)
-  
-  return(data.frame(VCRT_correct_answers,VCRT_intuitive_answers,VCRT_incorrect_answers))
-} # not included because tricky to score
 dast_10_score <- function(data){
   data <- data %>% filter(!grepl('check', V1)) %>% 
     filter(!grepl('TRQ', V1)) %>%

@@ -32,10 +32,10 @@ survey.list = c('ctq','qes','panasx','ryff_wb','sticsa_state',
                 'svs','teps', 'vhs', 'whodas','dfas', 'bis_bas', 'promis_emotion',
                 'promis_meaning', 'promis_sleep', 'promis_social_iso',
                 'promis_social_sat','promis_self_efficacy','promis_self_efficacy_manage',
-                'csass_oecd', 'health_questions')
+                'csass_oecd', 'health_questions', 'zan_srv')
 
-survey.list = c('pdsq')
-
+# survey.list = c('well_being')
+# To test, read in data: data = read.csv("L:/NPC/DataSink/StimTool_Online/WB_Emotional_Faces/well_being_665daa0b432c3a3ad423ea34_T1_2024_07_29_11_17.csv",header=F)
 ## Functions -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 extract.survey <- function(survey_str){
   scores <- data.frame()
@@ -305,13 +305,13 @@ well_being_score <- function(data){
   data <- data %>% filter(!grepl('attention', V1)) %>% 
     filter(!grepl('TRQ', V1)) %>%
     mutate(V2 = as.numeric(sub('.*Item ','', V2))-1) %>%
-    mutate(V2 = ifelse(grepl(paste(paste0('question', c(5,6,12,30,36,40)), collapse='|'),V1), 10-V2,V2))
+    mutate(V2 = ifelse(grepl(paste(paste0('question', c(6,7,12,30,36,40)), collapse='|'),V1), 10-V2,V2))
   
   WB_emohealth <- data %>%
-    filter(grepl(paste(paste0('question', 1:7, '_'), collapse='|'),V1)) %>%
+    filter(grepl(paste(paste0('question', c(1,3,4,5,6,7,8), '_'), collapse='|'),V1)) %>%
     pull(V2) %>% sum/7
   WB_physhealth <- data %>%
-    filter(grepl(paste(paste0('question', 8:14, '_'), collapse='|'),V1)) %>%
+    filter(grepl(paste(paste0('question', c(9,10,2,11,12,13,14), '_'), collapse='|'),V1)) %>%
     pull(V2) %>% sum/7
   WB_meanpurpose <- data %>%
     filter(grepl(paste(paste0('question', 15:20), collapse='|'),V1)) %>%
@@ -460,6 +460,10 @@ pdsq_score <- function(data){
   
   
   PDSQ_has_mdd = PDSQ_mdd >= 9 
+  # since we omit 6 suicide-related questions, we also have a porportional cutoff 
+  # 15/21 total questions * 9 old cutoff rounds up to 7
+  PDSQ_has_mdd_proportional_cutoff = PDSQ_mdd >= 7 
+  
   PDSQ_has_ptsd = PDSQ_ptsd >= 5
   PDSQ_has_bulimia = PDSQ_bulimia >= 7
   PDSQ_has_ocd = PDSQ_ocd >= 1 
@@ -475,7 +479,7 @@ pdsq_score <- function(data){
   
   
   
-  final <- data.frame(PDSQ_attncheck1,PDSQ_attncheck2,PDSQ_mdd,PDSQ_ptsd,
+  final <- data.frame(PDSQ_attncheck1,PDSQ_attncheck2,PDSQ_mdd,PDSQ_has_mdd_proportional_cutoff,PDSQ_ptsd,
                       PDSQ_bulimia,PDSQ_ocd,PDSQ_panic,PDSQ_gad,
                       PDSQ_psychosis,PDSQ_agoraphobia,PDSQ_social,PDSQ_alcohol,
                       PDSQ_drugs,PDSQ_somatization,PDSQ_hypochondria,

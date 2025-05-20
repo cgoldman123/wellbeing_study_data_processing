@@ -139,7 +139,7 @@ crt_7_score <- function(data){
   q6_cor = crt_score(q6_value, c("twenty", "20"))  
   q7_cor = as.numeric(q7_value == "Item 3")
 
-  q1_intuit = crt_score(q1_value, c("10", "ten"))
+  q1_intuit = crt_score(q1_value, c("10", "ten", "\\.10", "\\.1", "\\0.1", "\\0.10"))
   q2_intuit = crt_score(q2_value, c("100", "one hundred", "hundred", "hundered"))  
   q3_intuit = crt_score(q3_value, c("24", "twenty-four","twenty four"))  
   q4_intuit = crt_score(q4_value, c("9", "nine"))  

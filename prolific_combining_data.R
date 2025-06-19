@@ -18,6 +18,8 @@ library(reticulate)
 library(readxl)
 library(lubridate)
 
+# Remember to make a note in the log explaining any updates to this dataframe!!!
+# L:\rsmith\wellbeing\data\prolific\combined_dataframes\combined_dataframes_log.txt
 
 ## Clear workspace -------------------------------------------------------------
 rm(list = ls())
@@ -364,5 +366,6 @@ duplicates <- final %>% filter(id %in% duplicated_ids)
 cat("Number of duplicated subjects in final DF: ", nrow(duplicates ),"\n")
 #View(duplicates)
 
-write.csv(final, 'L:/rsmith/wellbeing/data/prolific/SWB_prolific_data.csv', row.names = F)
+# Remember to make a note in the log explaining any updates to this dataframe!!!
+write.csv(final, paste0('L:/rsmith/wellbeing/data/prolific/combined_dataframes/SWB_prolific_data_', Sys.Date(), '.csv'), row.names = FALSE)
 
